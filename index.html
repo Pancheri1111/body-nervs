@@ -3,225 +3,59 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Simulação Bio-Luminescente Humana</title>
+    <title>Bio-Simulação Completa - Pancheri</title>
     <style>
-        /* Fundo azulado escuro para destacar as luzes */
-        body { margin: 0; background: linear-gradient(to bottom, #0a0a2a, #000011); color: white; font-family: sans-serif; overflow: hidden; }
+        body { margin: 0; background: radial-gradient(circle, #0a1931 0%, #000 100%); color: #fff; font-family: 'Segoe UI', sans-serif; overflow: hidden; }
         canvas { display: block; }
-        .controls { position: absolute; top: 20px; left: 20px; background: rgba(0, 0, 30, 0.8); padding: 15px; border-radius: 12px; border: 1px solid #4488ff; box-shadow: 0 0 15px rgba(0, 100, 255, 0.3); }
-        h1 { margin: 0 0 10px 0; font-size: 18px; color: #4488ff; text-transform: uppercase; letter-spacing: 1px; }
-        .legend { font-size: 12px; line-height: 1.6; }
-        .red-glow { color: #ff3333; text-shadow: 0 0 5px #ff0000; } /* Sangue neon */
-        .blue-glow { color: #00ffff; text-shadow: 0 0 5px #00aaff; } /* Nervos neon */
+        .ui-panel { position: absolute; top: 20px; left: 20px; background: rgba(0, 20, 50, 0.7); padding: 20px; border-radius: 15px; border: 1px solid #00f2ff; backdrop-filter: blur(5px); pointer-events: none; }
+        h1 { margin: 0; font-size: 1.2rem; color: #00f2ff; text-shadow: 0 0 10px #00f2ff; }
+        .stats { font-size: 0.8rem; margin-top: 10px; color: #a0c4ff; }
     </style>
 </head>
 <body>
 
-<div class="controls">
-    <h1>Bio-Iluminação Sistêmica</h1>
-    <div class="legend">
-        <p><b class="red-glow">●</b> Fluxo Sanguíneo (Luz Arterial)</p>
-        <p><b class="blue-glow">⚡</b> Impulso Nervoso (Eletricidade)</p>
+<div class="ui-panel">
+    <h1>SISTEMA BIOMÉTRICO V1.0</h1>
+    <div class="stats">
+        <p>● <span style="color:#ff3333">Fluxo Sanguíneo:</span> Ativo</p>
+        <p>● <span style="color:#00f2ff">Impulsos Nervosos:</span> Estáveis</p>
+        <p>● <span style="color:#ffffff">Corpo:</span> Masculino Padrão</p>
     </div>
 </div>
 
-<canvas id="simCanvas"></canvas>
+<canvas id="canvas"></canvas>
 
 <script>
-const canvas = document.getElementById('simCanvas');
+const canvas = document.getElementById('canvas');
 const ctx = canvas.getContext('2d');
 
-let width, height;
-let particles = [];
-let nerves = [];
+let width, height, scale;
+let bloodParticles = [];
+let impulses = [];
 
-// Pontos anatômicos base
-const bodyPoints = {
-    head: { x: 0.5, y: 0.12 },
-    neck: { x: 0.5, y: 0.20 },
-    heart: { x: 0.53, y: 0.30 }, // Levemente à esquerda (direita na tela)
-    lungs: { x: 0.5, y: 0.28 },
-    stomach: { x: 0.52, y: 0.45 },
-    handL: { x: 0.15, y: 0.5 },
-    handR: { x: 0.85, y: 0.5 },
-    hip: { x: 0.5, y: 0.6 },
-    footL: { x: 0.35, y: 0.92 },
-    footR: { x: 0.65, y: 0.92 }
+// Pontos da Anatomia (X, Y relativos ao centro do corpo)
+const anatomy = {
+    head: { x: 0, y: -0.4 },
+    heart: { x: 0.02, y: -0.15 },
+    lungL: { x: -0.06, y: -0.15 },
+    lungR: { x: 0.06, y: -0.15 },
+    liver: { x: 0.04, y: -0.02 },
+    stomach: { x: -0.04, y: -0.02 },
+    intestine: { x: 0, y: 0.1 },
+    handL: { x: -0.35, y: 0.1 },
+    handR: { x: 0.35, y: 0.1 },
+    footL: { x: -0.12, y: 0.45 },
+    footR: { x: 0.12, y: 0.45 }
 };
 
 function init() {
     width = canvas.width = window.innerWidth;
     height = canvas.height = window.innerHeight;
-    particles = [];
-    nerves = [];
-
-    // Mais partículas para um efeito de fluxo mais intenso
-    for (let i = 0; i < 250; i++) {
-        particles.push(new BloodParticle());
-    }
-    // Mais caminhos nervosos
-    for(let i=0; i<15; i++) nerves.push(new NerveImpulse());
+    // Escala baseada na altura da tela para o corpo caber sempre
+    scale = height * 0.9;
+    
+    bloodParticles = [];
+    for(let i=0; i<300; i++) bloodParticles.push(new Blood());
 }
 
-// --- Desenho dos Órgãos (Fundo Translúcido) ---
-function drawOrgans() {
-    ctx.globalAlpha = 0.3; // Órgãos transparentes para as luzes brilharem
-
-    // Cérebro
-    ctx.fillStyle = '#c779a8';
-    ctx.beginPath(); ctx.ellipse(width*bodyPoints.head.x, height*bodyPoints.head.y, width*0.06, height*0.05, 0, 0, Math.PI*2); ctx.fill();
-
-    // Pulmões
-    ctx.fillStyle = '#d48c8c';
-    ctx.beginPath(); ctx.ellipse(width*0.43, height*0.3, width*0.07, height*0.1, 0, 0, Math.PI*2); ctx.fill();
-    ctx.beginPath(); ctx.ellipse(width*0.57, height*0.3, width*0.07, height*0.1, 0, 0, Math.PI*2); ctx.fill();
-
-    // Coração
-    ctx.fillStyle = '#a83232';
-    ctx.beginPath(); ctx.arc(width*bodyPoints.heart.x, height*bodyPoints.heart.y, width*0.04, 0, Math.PI*2); ctx.fill();
-
-    // Sistema Digestivo (Abstrato)
-    ctx.fillStyle = '#bda879';
-    ctx.beginPath(); ctx.ellipse(width*bodyPoints.stomach.x, height*0.55, width*0.09, height*0.12, 0, 0, Math.PI*2); ctx.fill();
-
-    ctx.globalAlpha = 1.0; // Volta a opacidade normal para as luzes
-}
-
-// --- Sistema Sanguíneo (Luzes Vermelhas) ---
-class BloodParticle {
-    constructor() { this.reset(); this.y = Math.random() * height; /* Espalhar no início */ }
-
-    reset() {
-        this.x = width * bodyPoints.heart.x;
-        this.y = height * bodyPoints.heart.y;
-        this.target = this.getRandomExtremity();
-        this.speed = Math.random() * 3 + 2; // Mais rápido
-        this.returning = false;
-        this.size = Math.random() * 3 + 1;
-    }
-
-    getRandomExtremity() {
-        const pts = [bodyPoints.head, bodyPoints.handL, bodyPoints.handR, bodyPoints.footL, bodyPoints.footR];
-        return pts[Math.floor(Math.random() * pts.length)];
-    }
-
-    update() {
-        const tx = this.returning ? width * bodyPoints.heart.x : width * this.target.x;
-        const ty = this.returning ? height * bodyPoints.heart.y : height * this.target.y;
-        const dx = tx - this.x;
-        const dy = ty - this.y;
-        const dist = Math.sqrt(dx * dx + dy * dy);
-
-        if (dist < 10) {
-            if (!this.returning) this.returning = true;
-            else this.reset();
-        }
-        this.x += (dx / dist) * this.speed;
-        this.y += (dy / dist) * this.speed;
-    }
-
-    draw() {
-        // Efeito de Luz (Glow)
-        ctx.shadowBlur = 15;
-        if (this.returning) {
-             ctx.fillStyle = '#ff0000'; // Vermelho sangue venoso
-             ctx.shadowColor = '#800000';
-        } else {
-             ctx.fillStyle = '#ff5555'; // Vermelho arterial brilhante
-             ctx.shadowColor = '#ff3333';
-        }
-
-        ctx.beginPath();
-        ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
-        ctx.fill();
-        ctx.shadowBlur = 0; // Reset do glow
-    }
-}
-
-// --- Sistema Nervoso (Raios Azuis) ---
-class NerveImpulse {
-    constructor() {
-        this.reset();
-        this.progress = Math.random(); // Começam em pontos diferentes
-    }
-
-    reset() {
-        this.path = [bodyPoints.head, bodyPoints.neck, this.getRandomTarget()];
-        this.progress = 0;
-        this.speed = Math.random() * 0.015 + 0.005;
-    }
-
-    getRandomTarget() {
-        const pts = [bodyPoints.heart, bodyPoints.stomach, bodyPoints.handL, bodyPoints.handR, bodyPoints.footL, bodyPoints.footR];
-        return pts[Math.floor(Math.random() * pts.length)];
-    }
-
-    drawJaggedLine(x1, y1, x2, y2, intensity) {
-        ctx.beginPath();
-        ctx.moveTo(x1, y1);
-        const segments = 10;
-        for (let i = 1; i < segments; i++) {
-            // Adiciona um "tremor" aleatório à linha para parecer eletricidade
-            let jitX = (Math.random() - 0.5) * 15 * intensity;
-            let jitY = (Math.random() - 0.5) * 15 * intensity;
-            let px = x1 + (x2 - x1) * (i / segments) + jitX;
-            let py = y1 + (y2 - y1) * (i / segments) + jitY;
-            ctx.lineTo(px, py);
-        }
-        ctx.lineTo(x2, y2);
-        ctx.stroke();
-    }
-
-    draw() {
-        this.progress += this.speed;
-        if (this.progress >= 1) this.reset();
-
-        // Configuração do brilho elétrico
-        ctx.shadowBlur = 20;
-        ctx.shadowColor = '#00ffff';
-        ctx.strokeStyle = 'rgba(150, 255, 255, ' + (1 - this.progress) + ')'; // Desvanece no fim
-        ctx.lineWidth = 2;
-        ctx.lineCap = 'round';
-
-        let currentPoint = 0;
-        let segmentProgress = this.progress * (this.path.length - 1);
-        currentPoint = Math.floor(segmentProgress);
-        let localProgress = segmentProgress - currentPoint;
-
-        if (currentPoint < this.path.length - 1) {
-            let p1 = this.path[currentPoint];
-            let p2 = this.path[currentPoint + 1];
-            
-            let ix = width * p1.x + (width * p2.x - width * p1.x) * localProgress;
-            let iy = height * p1.y + (height * p2.y - height * p1.y) * localProgress;
-
-            // Desenha o raio até o ponto atual
-            this.drawJaggedLine(width * p1.x, height * p1.y, ix, iy, 1 - this.progress);
-            
-            // Cabeça do impulso (ponto brilhante)
-            ctx.fillStyle = '#ffffff';
-            ctx.beginPath(); ctx.arc(ix, iy, 4, 0, Math.PI*2); ctx.fill();
-        }
-        ctx.shadowBlur = 0;
-    }
-}
-
-function animate() {
-    // Rastro mais longo para efeito de luz persistente
-    ctx.fillStyle = 'rgba(10, 10, 42, 0.3)'; 
-    ctx.fillRect(0, 0, width, height);
-
-    drawOrgans(); // Desenha os órgãos ao fundo
-
-    particles.forEach(p => { p.update(); p.draw(); });
-    nerves.forEach(n => n.draw());
-
-    requestAnimationFrame(animate);
-}
-
-window.addEventListener('resize', init);
-init();
-animate();
-</script>
-</body>
-</html>
+// --- DESENHO DA SIL
