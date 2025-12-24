@@ -3,23 +3,23 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Bio-Simulação Completa - Pancheri</title>
+    <title>Bio-Simulação V2 - Pancheri</title>
     <style>
-        body { margin: 0; background: radial-gradient(circle, #0a1931 0%, #000 100%); color: #fff; font-family: 'Segoe UI', sans-serif; overflow: hidden; }
-        canvas { display: block; }
-        .ui-panel { position: absolute; top: 20px; left: 20px; background: rgba(0, 20, 50, 0.7); padding: 20px; border-radius: 15px; border: 1px solid #00f2ff; backdrop-filter: blur(5px); pointer-events: none; }
-        h1 { margin: 0; font-size: 1.2rem; color: #00f2ff; text-shadow: 0 0 10px #00f2ff; }
-        .stats { font-size: 0.8rem; margin-top: 10px; color: #a0c4ff; }
+        body { margin: 0; background: #00050a; color: #fff; font-family: 'Segoe UI', sans-serif; overflow: hidden; }
+        canvas { display: block; filter: drop-shadow(0 0 10px rgba(0, 150, 255, 0.3)); }
+        .ui-panel { position: absolute; top: 20px; left: 20px; background: rgba(0, 10, 30, 0.85); padding: 20px; border-radius: 10px; border-left: 4px solid #00f2ff; pointer-events: none; z-index: 10; }
+        h1 { margin: 0; font-size: 16px; color: #00f2ff; letter-spacing: 2px; }
+        .stats { font-size: 12px; margin-top: 10px; opacity: 0.8; }
     </style>
 </head>
 <body>
 
 <div class="ui-panel">
-    <h1>SISTEMA BIOMÉTRICO V1.0</h1>
+    <h1>MONITOR BIOMÉTRICO</h1>
     <div class="stats">
-        <p>● <span style="color:#ff3333">Fluxo Sanguíneo:</span> Ativo</p>
-        <p>● <span style="color:#00f2ff">Impulsos Nervosos:</span> Estáveis</p>
-        <p>● <span style="color:#ffffff">Corpo:</span> Masculino Padrão</p>
+        <p>ESTADO: <span style="color:#00ff00">ESTÁVEL</span></p>
+        <p>SCAN: CORPO MASCULINO</p>
+        <p>SISTEMAS: HEMO / NEURO</p>
     </div>
 </div>
 
@@ -29,33 +29,162 @@
 const canvas = document.getElementById('canvas');
 const ctx = canvas.getContext('2d');
 
-let width, height, scale;
+let width, height, scale, cx, cy;
 let bloodParticles = [];
-let impulses = [];
+let nerves = [];
 
-// Pontos da Anatomia (X, Y relativos ao centro do corpo)
-const anatomy = {
-    head: { x: 0, y: -0.4 },
-    heart: { x: 0.02, y: -0.15 },
-    lungL: { x: -0.06, y: -0.15 },
-    lungR: { x: 0.06, y: -0.15 },
-    liver: { x: 0.04, y: -0.02 },
-    stomach: { x: -0.04, y: -0.02 },
-    intestine: { x: 0, y: 0.1 },
-    handL: { x: -0.35, y: 0.1 },
-    handR: { x: 0.35, y: 0.1 },
-    footL: { x: -0.12, y: 0.45 },
-    footR: { x: 0.12, y: 0.45 }
+// Coordenadas anatômicas (escala 0 a 1)
+const map = {
+    head: {x: 0, y: -0.42},
+    heart: {x: 0.03, y: -0.18},
+    lungL: {x: -0.07, y: -0.18},
+    lungR: {x: 0.07, y: -0.18},
+    stomach: {x: 0, y: 0.02},
+    handL: {x: -0.4, y: 0.15},
+    handR: {x: 0.4, y: 0.15},
+    footL: {x: -0.15, y: 0.45},
+    footR: {x: 0.15, y: 0.45}
 };
 
 function init() {
     width = canvas.width = window.innerWidth;
     height = canvas.height = window.innerHeight;
-    // Escala baseada na altura da tela para o corpo caber sempre
-    scale = height * 0.9;
-    
+    cx = width / 2;
+    cy = height / 2;
+    // Ajusta o tamanho do corpo para ocupar 85% da altura da tela
+    scale = height * 0.85;
+
     bloodParticles = [];
-    for(let i=0; i<300; i++) bloodParticles.push(new Blood());
+    for(let i=0; i<400; i++) bloodParticles.push(new Blood());
+    nerves = [];
+    for(let i=0; i<15; i++) nerves.push(new Nerve());
 }
 
-// --- DESENHO DA SIL
+function drawMannequin() {
+    ctx.save();
+    ctx.translate(cx, cy);
+    
+    // Silhueta (Corpo preenchido levemente)
+    ctx.beginPath();
+    ctx.lineWidth = 2;
+    ctx.strokeStyle = "rgba(0, 242, 255, 0.4)";
+    ctx.fillStyle = "rgba(0, 242, 255, 0.03)";
+    
+    // Caminho da Silhueta
+    ctx.moveTo(0, -0.48 * scale); // Topo cabeça
+    ctx.arc(0, -0.42 * scale, 0.06 * scale, -Math.PI/2, Math.PI*1.5); // Cabeça
+    ctx.lineTo(-0.1 * scale, -0.3 * scale); // Ombro L
+    ctx.lineTo(-0.4 * scale, 0.15 * scale); // Braço L
+    ctx.lineTo(-0.35 * scale, 0.18 * scale);
+    ctx.lineTo(-0.12 * scale, -0.05 * scale); // Axila L
+    ctx.lineTo(-0.12 * scale, 0.2 * scale); // Cintura L
+    ctx.lineTo(-0.18 * scale, 0.48 * scale); // Pé L
+    ctx.lineTo(-0.02 * scale, 0.48 * scale);
+    ctx.lineTo(0, 0.2 * scale); // Virilha
+    ctx.lineTo(0.02 * scale, 0.48 * scale);
+    ctx.lineTo(0.18 * scale, 0.48 * scale); // Pé R
+    ctx.lineTo(0.12 * scale, 0.2 * scale); // Cintura R
+    ctx.lineTo(0.12 * scale, -0.05 * scale); // Axila R
+    ctx.lineTo(0.35 * scale, 0.18 * scale);
+    ctx.lineTo(0.4 * scale, 0.15 * scale); // Braço R
+    ctx.lineTo(0.1 * scale, -0.3 * scale); // Ombro R
+    ctx.closePath();
+    ctx.fill();
+    ctx.stroke();
+
+    // Órgãos Internos
+    ctx.globalAlpha = 0.5;
+    // Pulmões
+    ctx.fillStyle = "#ffaaaa";
+    ctx.beginPath(); ctx.ellipse(-0.06*scale, -0.18*scale, 0.04*scale, 0.09*scale, 0.1, 0, 7); ctx.fill();
+    ctx.beginPath(); ctx.ellipse(0.06*scale, -0.18*scale, 0.04*scale, 0.09*scale, -0.1, 0, 7); ctx.fill();
+    // Estômago/Fígado
+    ctx.fillStyle = "#ffcc88";
+    ctx.beginPath(); ctx.ellipse(0, 0.02*scale, 0.07*scale, 0.04*scale, 0, 0, 7); ctx.fill();
+    
+    // Coração (Brilhante)
+    ctx.globalAlpha = 1;
+    ctx.fillStyle = "#ff0000";
+    ctx.shadowBlur = 15;
+    ctx.shadowColor = "red";
+    ctx.beginPath(); ctx.arc(0.02*scale, -0.18*scale, 0.02*scale, 0, 7); ctx.fill();
+    ctx.shadowBlur = 0;
+    
+    ctx.restore();
+}
+
+class Blood {
+    constructor() { this.init(); this.prog = Math.random(); }
+    init() {
+        const targets = [map.head, map.handL, map.handR, map.footL, map.footR];
+        this.target = targets[Math.floor(Math.random()*targets.length)];
+        this.prog = 0;
+        this.speed = 0.003 + Math.random() * 0.004;
+        this.back = false;
+    }
+    update() {
+        this.prog += this.speed;
+        if(this.prog >= 1) {
+            if(!this.back) { this.back = true; this.prog = 0; }
+            else { this.init(); }
+        }
+    }
+    draw() {
+        const start = this.back ? this.target : map.heart;
+        const end = this.back ? map.heart : this.target;
+        const x = cx + (start.x + (end.x - start.x) * this.prog) * scale;
+        const y = cy + (start.y + (end.y - start.y) * this.prog) * scale;
+        ctx.fillStyle = this.back ? "#4444ff" : "#ff4444";
+        ctx.beginPath(); ctx.arc(x, y, 1.5, 0, 7); ctx.fill();
+    }
+}
+
+class Nerve {
+    constructor() { this.init(); }
+    init() {
+        const targets = [map.handL, map.handR, map.footL, map.footR, map.stomach];
+        this.target = targets[Math.floor(Math.random()*targets.length)];
+        this.active = false;
+        this.timer = Math.random() * 100;
+    }
+    draw() {
+        if(!this.active) {
+            this.timer--;
+            if(this.timer < 0) this.active = true;
+            return;
+        }
+        this.timer += 0.05; // Usando como progresso aqui
+        if(this.timer > 1.2) this.init();
+
+        ctx.strokeStyle = "#00f2ff";
+        ctx.lineWidth = 1;
+        ctx.shadowBlur = 5;
+        ctx.shadowColor = "#00f2ff";
+        ctx.beginPath();
+        ctx.moveTo(cx + map.head.x * scale, cy + map.head.y * scale);
+        // Efeito de raio
+        const tx = cx + map.target.x * scale;
+        const ty = cy + map.target.y * scale;
+        ctx.lineTo(tx, ty);
+        ctx.stroke();
+        ctx.shadowBlur = 0;
+    }
+}
+
+function loop() {
+    ctx.fillStyle = "rgba(0, 5, 10, 0.2)";
+    ctx.fillRect(0, 0, width, height);
+    
+    drawMannequin();
+    bloodParticles.forEach(p => { p.update(); p.draw(); });
+    nerves.forEach(n => n.draw());
+    
+    requestAnimationFrame(loop);
+}
+
+window.addEventListener('resize', init);
+init();
+loop();
+</script>
+</body>
+</html>
